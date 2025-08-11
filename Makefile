@@ -1,4 +1,9 @@
 VERSION = `cat VERSION`
+PORT := $(shell val=$$(grep -hE '^[[:space:]]*port:' config.yaml example-config.yaml 2>/dev/null \
+        | sed -E 's/^[[:space:]]*port:[[:space:]]*//' \
+        | head -n1); \
+        [ -n "$$val" ] && echo $$val || echo 5000)
+
 .PHONY: build run daemon test run-local black black-check update-requirements
 
 build:
@@ -14,10 +19,10 @@ rebuild-m1:
 	docker build --no-cache --tag opentopodata:$(VERSION) --file docker/apple-silicon.Dockerfile .
 
 run:
-	docker run --rm -it --volume "$(shell pwd)/data:/app/data:ro" -p 5000:5000 opentopodata:$(VERSION) 
+	docker run --rm -it --volume "$(shell pwd)/data:/app/data:ro" -p $(PORT):5000 opentopodata:$(VERSION) 
 
 daemon:
-	docker run --rm -itd --volume "$(shell pwd)/data:/app/data:ro" -p 5000:5000 opentopodata:$(VERSION) 
+	docker run --rm -itd --volume "$(shell pwd)/data:/app/data:ro" -p $(PORT):5000 opentopodata:$(VERSION) 
 
 test: build black-check 
 	docker run --rm -e DISABLE_MEMCACHE=1 --volume "$(shell pwd)/htmlcov:/app/htmlcov" opentopodata:$(VERSION) python -m pytest --ignore=data --ignore=scripts --cov=opentopodata --cov-report html --timeout=10
@@ -26,7 +31,7 @@ test-m1: build-m1 black-check
 	docker run --rm -e DISABLE_MEMCACHE=1 --volume "$(shell pwd)/htmlcov:/app/htmlcov" opentopodata:$(VERSION) python -m pytest --ignore=data --ignore=scripts --cov=opentopodata --cov-report html --timeout=10
 
 run-local:
-	FLASK_APP=opentopodata/api.py FLASK_DEBUG=1 flask run --port 5000
+	FLASK_APP=opentopodata/api.py FLASK_DEBUG=1 flask run --port $(PORT)
 
 black:
 	black --target-version py311 tests opentopodata docker
@@ -39,4 +44,3 @@ update-requirements: build
 	# it can't be deleted without breaking the docker mount. So instead do the
 	# compiling in /tmp. Should run test suite afterwards.
 	docker run --rm -v $(shell pwd)/requirements.txt:/app/requirements.txt -w /tmp opentopodata:$(VERSION)  /bin/bash -c "cp /app/requirements.in .; pip-compile requirements.in --strip-extras --resolver backtracking; cp requirements.txt /app/requirements.txt"
-

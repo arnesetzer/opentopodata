@@ -10,6 +10,8 @@ max_locations_per_request: 100
 # protocol, domain, and port ('https://api.example.com/'). Default is null.
 access_control_allow_origin: "*"
 
+# The port on which the API will run. Default is 5000.
+port: 5000
 
 datasets:
 
